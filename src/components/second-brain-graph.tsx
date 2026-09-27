@@ -224,6 +224,7 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 	const [yearFilter, setYearFilter] = useState(ALL_OPTION);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [userPosts, setUserPosts] = useState<Post[]>([]);
+	const [hasLoadedUserPosts, setHasLoadedUserPosts] = useState(false);
 	const [isComposerOpen, setIsComposerOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [draft, setDraft] = useState<PostDraft>(emptyDraft);
@@ -232,21 +233,26 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 	useEffect(() => {
 		window.localStorage.removeItem(LEGACY_LOCAL_POSTS_KEY);
 		const saved = window.localStorage.getItem(LOCAL_POSTS_KEY);
-		if (!saved) {
-			return;
-		}
-
-		try {
-			const parsed = JSON.parse(saved) as Post[];
-			setUserPosts(parsed.map((post) => normalizePost(post)));
-		} catch {
-			setUserPosts([]);
-		}
+		queueMicrotask(() => {
+			if (saved) {
+				try {
+					const parsed = JSON.parse(saved) as Post[];
+					setUserPosts(parsed.map((post) => normalizePost(post)));
+				} catch {
+					setUserPosts([]);
+				}
+			}
+			setHasLoadedUserPosts(true);
+		});
 	}, []);
 
 	useEffect(() => {
+		if (!hasLoadedUserPosts) {
+			return;
+		}
+
 		window.localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(userPosts));
-	}, [userPosts]);
+	}, [hasLoadedUserPosts, userPosts]);
 
 	const allPosts = useMemo(() => {
 		const uniquePosts = new Map<string, Post>();
@@ -466,37 +472,11 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 			paragraphTitles,
 		};
 
-		let savedPost: Post;
-		try {
-			const response = await fetch("/api/posts", {
-				method: editingId ? "PUT" : "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(
-					editingId ? { ...nextPost, slug: editingId } : nextPost,
-				),
-			});
-
-			if (!response.ok) {
-				const result = (await response.json()) as { error?: string };
-				setComposerError(
-					result.error ??
-						(editingId
-							? "Unable to update the post file."
-							: "Unable to save the post file."),
-				);
-				return;
-			}
-
-			const result = (await response.json()) as { post: Post };
-			savedPost = normalizePost(result.post);
-			setUserPosts((previous) => [
-				savedPost,
-				...previous.filter((post) => post.id !== savedPost.id),
-			]);
-		} catch {
-			setComposerError("Unable to reach the post file server.");
-			return;
-		}
+		const savedPost = normalizePost(nextPost);
+		setUserPosts((previous) => [
+			savedPost,
+			...previous.filter((post) => post.id !== savedPost.id),
+		]);
 		setCategoryFilter(ALL_OPTION);
 		setLocationFilter(ALL_OPTION);
 		setYearFilter(ALL_OPTION);
