@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) starter for a blog-as-second-brain concept, using [React](https://react.dev) for UI, [D3](https://d3js.org) for the interactive graph, and MDX files as the content source.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What is included
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- A homepage with a "second brain" graph experience
+- D3 force simulation for node placement and clustering
+- Filters for category, location, and year
+- Cluster modes for category, date, and location
+- Real MDX-backed content in [`src/content/posts/`](src/content/posts)
+- Typed content loading in [`src/lib/posts.ts`](src/lib/posts.ts)
 
-## Learn More
+## Suggested next steps
 
-To learn more about Next.js, take a look at the following resources:
+To turn this into a real product, the next logical steps are:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Replace sample data with MDX or CMS-backed blog content
+- Create dynamic blog post routes from the same content source
+- Add richer edges (shared tags, backlinks, manual relationships)
+- Add search, saved views, and animation between layouts
+- Optionally sync locations to map coordinates for a geographic mode
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Writing a new post
 
-## Deploy on Vercel
+Add a new `.mdx` file in `src/content/posts/` with this frontmatter shape:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```mdx
+---
+title: Your Post Title
+date: 2026-09-07
+location: Mexico City
+categories:
+  - Design
+  - Writing
+tags:
+  - notes
+  - graphs
+excerpt: A short summary used in cards and the graph detail panel.
+---
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The homepage graph and `/posts/[slug]` route will pick it up automatically.
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run lint
+```
+
+## Tech stack
+
+- Next.js App Router
+- React
+- TypeScript
+- Tailwind CSS
+- D3
