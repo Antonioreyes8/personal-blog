@@ -1,6 +1,7 @@
 "use client";
 
 import * as d3 from "d3";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Post } from "@/lib/posts";
@@ -218,6 +219,7 @@ type SecondBrainGraphProps = {
 };
 
 export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
+	const router = useRouter();
 	const svgRef = useRef<SVGSVGElement | null>(null);
 	const [categoryFilter, setCategoryFilter] = useState(ALL_OPTION);
 	const [locationFilter, setLocationFilter] = useState(ALL_OPTION);
@@ -229,6 +231,8 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [draft, setDraft] = useState<PostDraft>(emptyDraft);
 	const [composerError, setComposerError] = useState<string | null>(null);
+	const [isDeletingPost, setIsDeletingPost] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	useEffect(() => {
 		window.localStorage.removeItem(LEGACY_LOCAL_POSTS_KEY);
@@ -357,6 +361,39 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 		setIsComposerOpen(true);
 		setComposerError(null);
 		setSelectedId(null);
+	}
+
+	async function deletePost(post: Post) {
+		setIsDeletingPost(true);
+		setDeleteError(null);
+
+		try {
+			if (posts.some((existingPost) => existingPost.id === post.id)) {
+				const response = await fetch(
+					`/api/posts?slug=${encodeURIComponent(post.slug)}`,
+					{ method: "DELETE" },
+				);
+
+				if (!response.ok) {
+					const result = (await response.json().catch(() => ({}))) as {
+						error?: string;
+					};
+					throw new Error(result.error ?? "Unable to delete the post.");
+				}
+			}
+
+			setUserPosts((previous) =>
+				previous.filter((userPost) => userPost.id !== post.id),
+			);
+			setSelectedId(null);
+			router.refresh();
+		} catch (error) {
+			setDeleteError(
+				error instanceof Error ? error.message : "Unable to delete the post.",
+			);
+		} finally {
+			setIsDeletingPost(false);
+		}
 	}
 
 	function handleTabInsert(
@@ -696,6 +733,9 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 				<SelectedPostDialog
 					selectedPost={selectedPost}
 					onClose={() => setSelectedId(null)}
+					onDelete={deletePost}
+					isDeleting={isDeletingPost}
+					deleteError={deleteError}
 					onEdit={(post) => {
 						setSelectedId(null);
 						openComposerForEdit(post);

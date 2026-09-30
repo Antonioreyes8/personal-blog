@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 
+import { revalidatePath } from "next/cache";
 import matter from "gray-matter";
 
 const POSTS_DIRECTORY = path.join(process.cwd(), "src", "content", "posts");
@@ -126,6 +127,7 @@ export async function POST(request: Request) {
 			source,
 			"utf8",
 		);
+		revalidatePath("/");
 
 		return Response.json({
 			post: {
@@ -165,6 +167,7 @@ export async function PUT(request: Request) {
 			getFrontmatter(input),
 		);
 		await fs.writeFile(filePath, source, "utf8");
+		revalidatePath("/");
 
 		return Response.json({
 			post: {
@@ -179,6 +182,30 @@ export async function PUT(request: Request) {
 		console.error("Unable to update post file", error);
 		return Response.json(
 			{ error: "Unable to update the post file." },
+			{ status: 500 },
+		);
+	}
+}
+
+export async function DELETE(request: Request) {
+	const slug = new URL(request.url).searchParams.get("slug");
+
+	if (!slug || !VALID_SLUG.test(slug)) {
+		return Response.json({ error: "Invalid post slug." }, { status: 400 });
+	}
+
+	try {
+		await fs.unlink(path.join(POSTS_DIRECTORY, `${slug}.mdx`));
+		revalidatePath("/");
+		return Response.json({ success: true });
+	} catch (error) {
+		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+			return Response.json({ error: "Post not found." }, { status: 404 });
+		}
+
+		console.error("Unable to delete post file", error);
+		return Response.json(
+			{ error: "Unable to delete the post file." },
 			{ status: 500 },
 		);
 	}
