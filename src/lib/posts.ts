@@ -106,7 +106,15 @@ function parsePost(slug: string, fileContents: string): Post {
 }
 
 const getPostSlugs = cache(async () => {
-	const entries = await fs.readdir(POSTS_DIRECTORY, { withFileTypes: true });
+	const entries = await fs
+		.readdir(POSTS_DIRECTORY, { withFileTypes: true })
+		.catch((error: NodeJS.ErrnoException) => {
+			if (error.code === "ENOENT") {
+				return [];
+			}
+
+			throw error;
+		});
 
 	return entries
 		.filter((entry) => entry.isFile() && entry.name.endsWith(".mdx"))
