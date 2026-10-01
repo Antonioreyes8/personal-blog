@@ -4,7 +4,7 @@ import type {
 	KeyboardEvent as ReactKeyboardEvent,
 	SetStateAction,
 } from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 import type { PostDraft } from "./types";
 import { emptySourceDraft } from "./types";
@@ -14,11 +14,7 @@ type PostComposerProps = {
 	setDraft: Dispatch<SetStateAction<PostDraft>>;
 	categories: readonly string[];
 	isEditing: boolean;
-	requiresPassword: boolean;
-	onSubmit: (
-		event: FormEvent<HTMLFormElement>,
-		submissionPassword: string,
-	) => Promise<void>;
+	onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 	isSubmitting: boolean;
 	onClose: () => void;
 	onTabInsert: (
@@ -34,7 +30,6 @@ export function PostComposer({
 	setDraft,
 	categories,
 	isEditing,
-	requiresPassword,
 	onSubmit,
 	isSubmitting,
 	onClose,
@@ -42,10 +37,9 @@ export function PostComposer({
 	composerError,
 }: PostComposerProps) {
 	const backdropPointerDown = useRef(false);
-	const [submissionPassword, setSubmissionPassword] = useState("");
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-		await onSubmit(event, submissionPassword);
+		await onSubmit(event);
 	}
 
 	const updateParagraph = (
@@ -387,24 +381,10 @@ export function PostComposer({
 					</p>
 				) : null}
 
-				{requiresPassword ? (
-					<label className="flex flex-col gap-2 text-sm text-white">
-						Submission password
-						<input
-							type="password"
-							autoComplete="current-password"
-							value={submissionPassword}
-							onChange={(event) => setSubmissionPassword(event.target.value)}
-							required
-							className="rounded-2xl border border-white/15 bg-black px-4 py-3 text-white outline-none"
-						/>
-					</label>
-				) : null}
-
 				<div className="flex justify-end">
 					<button
 						type="submit"
-						disabled={isSubmitting || (requiresPassword && !submissionPassword)}
+						disabled={isSubmitting}
 						className="rounded-full border border-white bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
 					>
 						{isEditing

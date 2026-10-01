@@ -1,6 +1,5 @@
 import { revalidatePath } from "next/cache";
 
-import { isAuthorizedPostMutation } from "@/lib/post-submission-auth";
 import { client } from "@/sanity/lib/client";
 
 export const runtime = "nodejs";
@@ -182,13 +181,6 @@ function isValidPublishedId(value: unknown): value is string {
 }
 
 export async function POST(request: Request) {
-	if (!isAuthorizedPostMutation(request)) {
-		return Response.json(
-			{ error: "Invalid submission password." },
-			{ status: 401 },
-		);
-	}
-
 	const writeClient = getWriteClient();
 	if (!writeClient) {
 		return Response.json(
@@ -249,13 +241,6 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-	if (!isAuthorizedPostMutation(request)) {
-		return Response.json(
-			{ error: "Invalid submission password." },
-			{ status: 401 },
-		);
-	}
-
 	const writeClient = getWriteClient();
 	if (!writeClient) {
 		return Response.json(
@@ -305,13 +290,6 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-	if (!isAuthorizedPostMutation(request)) {
-		return Response.json(
-			{ error: "Invalid submission password." },
-			{ status: 401 },
-		);
-	}
-
 	const writeClient = getWriteClient();
 	if (!writeClient) {
 		return Response.json(

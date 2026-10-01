@@ -369,14 +369,6 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 
 	async function deletePost(post: Post) {
 		const isSanityPost = post.source === "sanity";
-		const isServerPost =
-			isSanityPost || posts.some((existingPost) => existingPost.id === post.id);
-		const submissionPassword = isServerPost
-			? window.prompt("Enter the submission password to continue.")
-			: null;
-		if (isServerPost && !submissionPassword) {
-			return;
-		}
 
 		setIsDeletingPost(true);
 		setDeleteError(null);
@@ -387,9 +379,6 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 					`/api/post-submissions?id=${encodeURIComponent(post.id)}`,
 					{
 						method: "DELETE",
-						headers: {
-							Authorization: `Bearer ${submissionPassword}`,
-						},
 					},
 				);
 
@@ -404,9 +393,6 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 					`/api/posts?slug=${encodeURIComponent(post.slug)}`,
 					{
 						method: "DELETE",
-						headers: {
-							Authorization: `Bearer ${submissionPassword}`,
-						},
 					},
 				);
 
@@ -473,10 +459,7 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 		});
 	}
 
-	async function submitDraft(
-		event: FormEvent<HTMLFormElement>,
-		submissionPassword: string,
-	) {
+	async function submitDraft(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const title = draft.title.trim();
 		const location = draft.location.trim();
@@ -530,11 +513,6 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 			return;
 		}
 		if (!editingId || editingSource === "sanity") {
-			if (!submissionPassword) {
-				setComposerError("Enter the submission password.");
-				return;
-			}
-
 			setIsSubmittingPost(true);
 			setComposerError(null);
 			try {
@@ -542,7 +520,6 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 					method: editingId ? "PUT" : "POST",
 					headers: {
 						"Content-Type": "application/json",
-						Authorization: `Bearer ${submissionPassword}`,
 					},
 					body: JSON.stringify({
 						...(editingId ? { id: editingId } : {}),
@@ -822,7 +799,6 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 					setDraft={setDraft}
 					categories={SCHOOL_CATEGORIES}
 					isEditing={editingId !== null}
-					requiresPassword={editingId === null || editingSource === "sanity"}
 					onSubmit={submitDraft}
 					isSubmitting={isSubmittingPost}
 					onClose={closeComposer}
