@@ -25,6 +25,7 @@ export type PostSummary = PostFrontmatter & {
 
 export type Post = PostSummary & {
 	content: string;
+	source?: "sanity";
 };
 
 function assertString(value: unknown, fieldName: string, slug: string): string {

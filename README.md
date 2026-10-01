@@ -1,55 +1,33 @@
-This is a [Next.js](https://nextjs.org) starter for a blog-as-second-brain concept, using [React](https://react.dev) for UI, [D3](https://d3js.org) for the interactive graph, and MDX files as the content source.
+This project is an interactive blog and knowledge graph built with Next.js, React, D3, and Sanity.
 
 ## Getting Started
 
-Install dependencies and run the development server:
+Use Node.js 22 LTS (22.12 or later), install dependencies from the lockfile, and configure the environment:
 
 ```bash
-npm install
+npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) for the graph and [http://localhost:3000/studio](http://localhost:3000/studio) for Sanity Studio.
 
-## What is included
+## Environment
 
-- A homepage with a "second brain" graph experience
-- D3 force simulation for node placement and clustering
-- Filters for category, location, and year
-- Cluster modes for category, date, and location
-- Real MDX-backed content in [`src/content/posts/`](src/content/posts)
-- Typed content loading in [`src/lib/posts.ts`](src/lib/posts.ts)
+Set the values in `.env.local` from your Sanity project:
 
-## Suggested next steps
+- `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` identify the project and dataset. The frontend uses unauthenticated reads, so the dataset must be public.
+- `SANITY_WRITE_TOKEN` is a server-only Sanity API token with permission to create, update, and delete posts.
+- `POST_SUBMISSION_PASSWORD` protects app submissions, edits, and deletes. Use a random value of at least 16 characters.
+- `NEXT_PUBLIC_SANITY_API_VERSION` is optional; the app defaults to `2026-09-30`.
 
-To turn this into a real product, the next logical steps are:
+Never expose `SANITY_WRITE_TOKEN` or `POST_SUBMISSION_PASSWORD` with a `NEXT_PUBLIC_` prefix or commit their values. Configure the same server-side secrets in your deployment environment.
 
-- Replace sample data with MDX or CMS-backed blog content
-- Create dynamic blog post routes from the same content source
-- Add richer edges (shared tags, backlinks, manual relationships)
-- Add search, saved views, and animation between layouts
-- Optionally sync locations to map coordinates for a geographic mode
+## Content
 
-## Writing a new post
+The graph combines published Sanity `post` documents with local MDX files under [`src/content/posts/`](src/content/posts). Posts submitted through the app are saved as Sanity drafts. Review and publish them in Studio; published posts then appear in the graph. Sanity-backed posts can be edited or deleted from the graph using the submission password.
 
-Add a new `.mdx` file in `src/content/posts/` with this frontmatter shape:
-
-```mdx
----
-title: Your Post Title
-date: 2026-09-07
-location: Mexico City
-categories:
-  - Design
-  - Writing
-tags:
-  - notes
-  - graphs
-excerpt: A short summary used in cards and the graph detail panel.
----
-```
-
-The homepage graph and `/posts/[slug]` route will pick it up automatically.
+To add repository-managed content, create an `.mdx` file under `src/content/posts/` with `title`, `date`, `categories`, and `tags` frontmatter followed by the post body.
 
 ## Scripts
 
@@ -59,10 +37,10 @@ npm run build
 npm run lint
 ```
 
-## Tech stack
+## Tech Stack
 
 - Next.js App Router
-- React
-- TypeScript
+- React and TypeScript
+- Sanity Content Lake and embedded Studio
 - Tailwind CSS
 - D3

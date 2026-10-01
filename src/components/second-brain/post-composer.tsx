@@ -4,7 +4,7 @@ import type {
 	KeyboardEvent as ReactKeyboardEvent,
 	SetStateAction,
 } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import type { PostDraft } from "./types";
 import { emptySourceDraft } from "./types";
@@ -14,7 +14,12 @@ type PostComposerProps = {
 	setDraft: Dispatch<SetStateAction<PostDraft>>;
 	categories: readonly string[];
 	isEditing: boolean;
-	onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+	requiresPassword: boolean;
+	onSubmit: (
+		event: FormEvent<HTMLFormElement>,
+		submissionPassword: string,
+	) => Promise<void>;
+	isSubmitting: boolean;
 	onClose: () => void;
 	onTabInsert: (
 		event: ReactKeyboardEvent<HTMLTextAreaElement>,
@@ -29,12 +34,19 @@ export function PostComposer({
 	setDraft,
 	categories,
 	isEditing,
+	requiresPassword,
 	onSubmit,
+	isSubmitting,
 	onClose,
 	onTabInsert,
 	composerError,
 }: PostComposerProps) {
 	const backdropPointerDown = useRef(false);
+	const [submissionPassword, setSubmissionPassword] = useState("");
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		await onSubmit(event, submissionPassword);
+	}
 
 	const updateParagraph = (
 		index: number,
@@ -95,7 +107,7 @@ export function PostComposer({
 			}}
 		>
 			<form
-				onSubmit={onSubmit}
+				onSubmit={handleSubmit}
 				className="max-h-[92vh] w-full max-w-4xl space-y-4 overflow-y-auto rounded-4xl border border-white/15 bg-black/95 p-6 text-white shadow-2xl shadow-white/10 sm:p-8"
 				onClick={(event) => event.stopPropagation()}
 			>
@@ -375,12 +387,31 @@ export function PostComposer({
 					</p>
 				) : null}
 
+				{requiresPassword ? (
+					<label className="flex flex-col gap-2 text-sm text-white">
+						Submission password
+						<input
+							type="password"
+							autoComplete="current-password"
+							value={submissionPassword}
+							onChange={(event) => setSubmissionPassword(event.target.value)}
+							required
+							className="rounded-2xl border border-white/15 bg-black px-4 py-3 text-white outline-none"
+						/>
+					</label>
+				) : null}
+
 				<div className="flex justify-end">
 					<button
 						type="submit"
+						disabled={isSubmitting || (requiresPassword && !submissionPassword)}
 						className="rounded-full border border-white bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
 					>
-						{isEditing ? "Save changes" : "Add post"}
+						{isEditing
+							? "Save changes"
+							: isSubmitting
+								? "Submitting…"
+								: "Submit for review"}
 					</button>
 				</div>
 			</form>

@@ -4,6 +4,8 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import matter from "gray-matter";
 
+import { isAuthorizedPostMutation } from "@/lib/post-submission-auth";
+
 const POSTS_DIRECTORY = path.join(process.cwd(), "src", "content", "posts");
 
 export const runtime = "nodejs";
@@ -109,6 +111,10 @@ async function getAvailableSlug(title: string) {
 }
 
 export async function POST(request: Request) {
+	if (!isAuthorizedPostMutation(request)) {
+		return Response.json({ error: "Unauthorized." }, { status: 401 });
+	}
+
 	try {
 		const input: unknown = await request.json();
 
@@ -148,6 +154,10 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+	if (!isAuthorizedPostMutation(request)) {
+		return Response.json({ error: "Unauthorized." }, { status: 401 });
+	}
+
 	try {
 		const input: unknown = await request.json();
 
@@ -188,6 +198,10 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+	if (!isAuthorizedPostMutation(request)) {
+		return Response.json({ error: "Unauthorized." }, { status: 401 });
+	}
+
 	const slug = new URL(request.url).searchParams.get("slug");
 
 	if (!slug || !VALID_SLUG.test(slug)) {

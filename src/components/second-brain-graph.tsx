@@ -35,9 +35,6 @@ const ALL_OPTION = "All";
 const LEGACY_LOCAL_POSTS_KEY = "second-brain-user-posts";
 const LOCAL_POSTS_KEY = "second-brain-user-posts-v2";
 const NODE_RADIUS = 60;
-const MAX_TITLE_CHARS = 90;
-const MAX_LOCATION_CHARS = 60;
-const MAX_TAGS_CHARS = 120;
 const MAX_TAGS = 8;
 const MAX_SINGLE_TAG = 24;
 
@@ -229,8 +226,13 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 	const [hasLoadedUserPosts, setHasLoadedUserPosts] = useState(false);
 	const [isComposerOpen, setIsComposerOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
+	const [editingSource, setEditingSource] = useState<Post["source"] | null>(
+		null,
+	);
 	const [draft, setDraft] = useState<PostDraft>(emptyDraft);
 	const [composerError, setComposerError] = useState<string | null>(null);
+	const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+	const [submissionNotice, setSubmissionNotice] = useState<string | null>(null);
 	const [isDeletingPost, setIsDeletingPost] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -322,12 +324,14 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 	function closeComposer() {
 		setIsComposerOpen(false);
 		setEditingId(null);
+		setEditingSource(null);
 		setDraft(emptyDraft);
 		setComposerError(null);
 	}
 
 	function openComposerForEdit(post: Post) {
 		setEditingId(post.id);
+		setEditingSource(post.source ?? null);
 		const thesis = post.thesis ?? "";
 		const conclusion = post.conclusion ?? "";
 		const bodyContent = post.content
@@ -364,14 +368,46 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 	}
 
 	async function deletePost(post: Post) {
+		const isSanityPost = post.source === "sanity";
+		const isServerPost =
+			isSanityPost || posts.some((existingPost) => existingPost.id === post.id);
+		const submissionPassword = isServerPost
+			? window.prompt("Enter the submission password to continue.")
+			: null;
+		if (isServerPost && !submissionPassword) {
+			return;
+		}
+
 		setIsDeletingPost(true);
 		setDeleteError(null);
 
 		try {
-			if (posts.some((existingPost) => existingPost.id === post.id)) {
+			if (isSanityPost) {
+				const response = await fetch(
+					`/api/post-submissions?id=${encodeURIComponent(post.id)}`,
+					{
+						method: "DELETE",
+						headers: {
+							Authorization: `Bearer ${submissionPassword}`,
+						},
+					},
+				);
+
+				if (!response.ok) {
+					const result = (await response.json().catch(() => ({}))) as {
+						error?: string;
+					};
+					throw new Error(result.error ?? "Unable to delete the post.");
+				}
+			} else if (posts.some((existingPost) => existingPost.id === post.id)) {
 				const response = await fetch(
 					`/api/posts?slug=${encodeURIComponent(post.slug)}`,
-					{ method: "DELETE" },
+					{
+						method: "DELETE",
+						headers: {
+							Authorization: `Bearer ${submissionPassword}`,
+						},
+					},
 				);
 
 				if (!response.ok) {
@@ -437,7 +473,10 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 		});
 	}
 
-	async function submitDraft(event: FormEvent<HTMLFormElement>) {
+	async function submitDraft(
+		event: FormEvent<HTMLFormElement>,
+		submissionPassword: string,
+	) {
 		event.preventDefault();
 		const title = draft.title.trim();
 		const location = draft.location.trim();
@@ -488,6 +527,66 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 		}
 		if (!conclusion) {
 			setComposerError("A conclusion paragraph is required.");
+			return;
+		}
+		if (!editingId || editingSource === "sanity") {
+			if (!submissionPassword) {
+				setComposerError("Enter the submission password.");
+				return;
+			}
+
+			setIsSubmittingPost(true);
+			setComposerError(null);
+			try {
+				const response = await fetch("/api/post-submissions", {
+					method: editingId ? "PUT" : "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${submissionPassword}`,
+					},
+					body: JSON.stringify({
+						...(editingId ? { id: editingId } : {}),
+						title,
+						date: draft.date,
+						location,
+						category: draft.category,
+						tags,
+						thesis,
+						paragraphs,
+						conclusion,
+						sources,
+					}),
+				});
+
+				if (!response.ok) {
+					const result = (await response.json().catch(() => ({}))) as {
+						error?: string;
+						details?: string[];
+					};
+					const details = result.details?.join(" ");
+					throw new Error(
+						details
+							? `${result.error ?? "Unable to submit the post."} ${details}`
+							: (result.error ?? "Unable to submit the post."),
+					);
+				}
+
+				setSubmissionNotice(
+					editingId
+						? "Post updated."
+						: "Submitted for review. It will appear in the graph after it is published.",
+				);
+				closeComposer();
+				router.refresh();
+			} catch (error) {
+				setComposerError(
+					error instanceof Error
+						? error.message
+						: "Unable to submit the post. Please try again.",
+				);
+			} finally {
+				setIsSubmittingPost(false);
+			}
 			return;
 		}
 
@@ -709,6 +808,7 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 				onClick={() => {
 					setIsComposerOpen(true);
 					setComposerError(null);
+					setSubmissionNotice(null);
 				}}
 				className="absolute bottom-6 right-6 z-20 inline-flex h-14 w-14 items-center justify-center rounded-full border border-white bg-white text-3xl leading-none text-black shadow-lg shadow-white/20 transition hover:bg-black hover:text-white"
 				aria-label="Add post"
@@ -722,11 +822,30 @@ export function SecondBrainGraph({ posts }: SecondBrainGraphProps) {
 					setDraft={setDraft}
 					categories={SCHOOL_CATEGORIES}
 					isEditing={editingId !== null}
+					requiresPassword={editingId === null || editingSource === "sanity"}
 					onSubmit={submitDraft}
+					isSubmitting={isSubmittingPost}
 					onClose={closeComposer}
 					onTabInsert={handleTabInsert}
 					composerError={composerError}
 				/>
+			) : null}
+
+			{submissionNotice ? (
+				<div
+					role="status"
+					className="absolute bottom-6 left-1/2 z-20 flex w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 items-center justify-between gap-4 rounded-xl border border-white/20 bg-black/95 px-4 py-3 text-sm text-white shadow-xl"
+				>
+					<span>{submissionNotice}</span>
+					<button
+						type="button"
+						onClick={() => setSubmissionNotice(null)}
+						className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 text-lg transition hover:bg-white hover:text-black"
+						aria-label="Dismiss submission confirmation"
+					>
+						×
+					</button>
+				</div>
 			) : null}
 
 			{selectedPost ? (
