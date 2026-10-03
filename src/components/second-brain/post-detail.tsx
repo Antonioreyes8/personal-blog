@@ -23,7 +23,7 @@ export function SelectedPostDialog({
 }: SelectedPostDialogProps) {
 	return (
 		<div
-			className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+			className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
 			onClick={onClose}
 		>
 			<article
@@ -33,8 +33,8 @@ export function SelectedPostDialog({
 				className="max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-4xl border border-white/15 bg-black/95 p-6 text-white shadow-2xl shadow-white/10 sm:p-8"
 				onClick={(event) => event.stopPropagation()}
 			>
-				<div className="flex items-start justify-between gap-4">
-					<div>
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+					<div className="min-w-0">
 						{selectedPost.location ? (
 							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
 								{selectedPost.location} ·{" "}
@@ -53,7 +53,7 @@ export function SelectedPostDialog({
 						</h2>
 					</div>
 
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
 						{selectedPost.source === "sanity" ? (
 							<Link
 								href="/studio"
@@ -110,6 +110,9 @@ export function SelectedPostDialog({
 							{category}
 						</span>
 					))}
+				</div>
+			{selectedPost.tags.length > 0 ? (
+				<div className="mt-2 flex flex-wrap gap-2">
 					{selectedPost.tags.map((tag) => (
 						<span
 							key={tag}
@@ -119,6 +122,7 @@ export function SelectedPostDialog({
 						</span>
 					))}
 				</div>
+			) : null}
 
 				<div className="mt-8 text-base leading-8 text-white/85">
 					{selectedPost.paragraphTitles !== undefined && selectedPost.thesis ? (
