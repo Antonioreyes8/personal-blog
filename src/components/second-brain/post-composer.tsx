@@ -2,9 +2,10 @@ import type {
 	Dispatch,
 	FormEvent,
 	KeyboardEvent as ReactKeyboardEvent,
+	PointerEvent as ReactPointerEvent,
 	SetStateAction,
 } from "react";
-import { useRef } from "react";
+import { Fragment, useRef, useState } from "react";
 
 import type { PostDraft } from "./types";
 import { emptySourceDraft } from "./types";
@@ -37,6 +38,19 @@ export function PostComposer({
 	composerError,
 }: PostComposerProps) {
 	const backdropPointerDown = useRef(false);
+	const paragraphListRef = useRef<HTMLDivElement>(null);
+	const paragraphDrag = useRef<{
+		pointerId: number;
+		from: number;
+		to: number;
+	} | null>(null);
+	const [draggingParagraphIndex, setDraggingParagraphIndex] = useState<
+		number | null
+	>(null);
+	const [paragraphDropIndex, setParagraphDropIndex] = useState<number | null>(
+		null,
+	);
+	const [paragraphAnnouncement, setParagraphAnnouncement] = useState("");
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		await onSubmit(event);
@@ -69,6 +83,117 @@ export function PostComposer({
 				(_, itemIndex) => itemIndex !== index,
 			),
 		}));
+	};
+
+	const moveParagraph = (from: number, to: number) => {
+		setDraft((previous) => {
+			if (
+				from < 0 ||
+				from >= previous.paragraphs.length ||
+				to < 0 ||
+				to >= previous.paragraphs.length ||
+				from === to
+			) {
+				return previous;
+			}
+
+			const paragraphs = [...previous.paragraphs];
+			const [movedParagraph] = paragraphs.splice(from, 1);
+			if (!movedParagraph) {
+				return previous;
+			}
+			paragraphs.splice(to, 0, movedParagraph);
+
+			return { ...previous, paragraphs };
+		});
+		setParagraphAnnouncement(
+			`Paragraph ${from + 1} moved to position ${to + 1}.`,
+		);
+	};
+
+	const startParagraphDrag = (
+		index: number,
+		event: ReactPointerEvent<HTMLButtonElement>,
+	) => {
+		if (!event.isPrimary || event.button !== 0) {
+			return;
+		}
+
+		event.preventDefault();
+		event.currentTarget.setPointerCapture(event.pointerId);
+		paragraphDrag.current = {
+			pointerId: event.pointerId,
+			from: index,
+			to: index,
+		};
+		setDraggingParagraphIndex(index);
+		setParagraphDropIndex(index);
+	};
+
+	const updateParagraphDropTarget = (
+		event: ReactPointerEvent<HTMLButtonElement>,
+	) => {
+		const drag = paragraphDrag.current;
+		if (!drag || drag.pointerId !== event.pointerId) {
+			return;
+		}
+
+		const rows = Array.from(
+			paragraphListRef.current?.querySelectorAll<HTMLElement>(
+				"[data-paragraph-index]",
+			) ?? [],
+		);
+		const target = rows.find((row) => {
+			const bounds = row.getBoundingClientRect();
+			return event.clientY < bounds.top + bounds.height / 2;
+		});
+		const nextIndex = target
+			? Number(target.dataset.paragraphIndex)
+			: rows.length;
+
+		drag.to = nextIndex;
+		setParagraphDropIndex(nextIndex);
+	};
+
+	const finishParagraphDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+		updateParagraphDropTarget(event);
+		const drag = paragraphDrag.current;
+		if (!drag || drag.pointerId !== event.pointerId) {
+			return;
+		}
+
+		const targetIndex = drag.to > drag.from ? drag.to - 1 : drag.to;
+		if (targetIndex !== drag.from) {
+			moveParagraph(drag.from, targetIndex);
+		}
+		paragraphDrag.current = null;
+		setDraggingParagraphIndex(null);
+		setParagraphDropIndex(null);
+	};
+
+	const cancelParagraphDrag = () => {
+		paragraphDrag.current = null;
+		setDraggingParagraphIndex(null);
+		setParagraphDropIndex(null);
+	};
+
+	const handleParagraphKeyDown = (
+		index: number,
+		event: ReactKeyboardEvent<HTMLButtonElement>,
+	) => {
+		const direction =
+			event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+		if (!direction) {
+			return;
+		}
+
+		event.preventDefault();
+		const targetIndex = index + direction;
+		if (targetIndex < 0 || targetIndex >= draft.paragraphs.length) {
+			return;
+		}
+
+		moveParagraph(index, targetIndex);
 	};
 
 	const updateSource = (
@@ -230,47 +355,98 @@ export function PostComposer({
 					/>
 				</label>
 
-				<div className="flex flex-col gap-3 text-sm text-white">
+				<div
+					ref={paragraphListRef}
+					className="flex flex-col gap-3 text-sm text-white"
+				>
 					<span>Paragraphs</span>
+					<p id="paragraph-reorder-help" className="sr-only">
+						Drag a paragraph handle to reorder it, or focus the handle and use
+						the arrow keys.
+					</p>
+					<p aria-live="polite" className="sr-only">
+						{paragraphAnnouncement}
+					</p>
 					{draft.paragraphs.map((paragraph, index) => (
-						<div
-							key={index}
-							className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/3 p-3"
-						>
-							<label className="flex flex-col gap-2 text-xs  text-white/70">
-								<input
-									value={paragraph.title}
-									onChange={(event) =>
-										updateParagraph(index, "title", event.target.value)
-									}
-									placeholder="Section heading (optional)"
-									className="rounded-xl border border-white/15 bg-black px-3 py-2 text-sm text-white outline-none"
-								/>
-							</label>
+						<Fragment key={index}>
+							<div className="relative">
+								{draggingParagraphIndex !== null &&
+								paragraphDropIndex === index ? (
+									<div
+										aria-hidden="true"
+										className="pointer-events-none absolute inset-x-2 -top-2 z-10 h-0.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+									/>
+								) : null}
+								<div
+									data-paragraph-index={index}
+									className={`flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/3 p-3 ${draggingParagraphIndex === index ? "opacity-50" : ""}`}
+								>
+									<div className="flex items-center gap-2">
+										<button
+											type="button"
+											aria-label={`Reorder paragraph ${index + 1}`}
+											aria-describedby="paragraph-reorder-help"
+											title="Drag to reorder, or use the arrow keys"
+											onPointerDown={(event) =>
+												startParagraphDrag(index, event)
+											}
+											onPointerMove={updateParagraphDropTarget}
+											onPointerUp={finishParagraphDrag}
+											onPointerCancel={cancelParagraphDrag}
+											onLostPointerCapture={cancelParagraphDrag}
+											onKeyDown={(event) =>
+												handleParagraphKeyDown(index, event)
+											}
+											className="inline-flex h-10 w-10 shrink-0 touch-none cursor-grab items-center justify-center rounded-xl border border-white/15 text-lg text-white/70 transition hover:bg-white/10 hover:text-white active:cursor-grabbing"
+										>
+											↕
+										</button>
+										<input
+											value={paragraph.title}
+											onChange={(event) =>
+												updateParagraph(index, "title", event.target.value)
+											}
+											placeholder="Section heading (optional)"
+											aria-label={`Heading for paragraph ${index + 1}`}
+											className="min-w-0 flex-1 rounded-xl border border-white/15 bg-black px-3 py-2 text-sm text-white outline-none"
+										/>
+									</div>
 
-							<div className="flex items-start gap-2">
-								<textarea
-									value={paragraph.content}
-									onChange={(event) =>
-										updateParagraph(index, "content", event.target.value)
-									}
-									onKeyDown={(event) => onTabInsert(event, "paragraphs", index)}
-									rows={4}
-									placeholder={`Paragraph ${index + 1}`}
-									className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-3 text-white outline-none"
-								/>
-								{draft.paragraphs.length > 1 ? (
-									<button
-										type="button"
-										onClick={() => removeParagraph(index)}
-										className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-white transition hover:bg-white hover:text-black"
-										aria-label={`Remove paragraph ${index + 1}`}
-									>
-										×
-									</button>
+									<div className="flex items-start gap-2">
+										<textarea
+											value={paragraph.content}
+											onChange={(event) =>
+												updateParagraph(index, "content", event.target.value)
+											}
+											onKeyDown={(event) =>
+												onTabInsert(event, "paragraphs", index)
+											}
+											rows={4}
+											placeholder={`Paragraph ${index + 1}`}
+											className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-3 text-white outline-none"
+										/>
+										{draft.paragraphs.length > 1 ? (
+											<button
+												type="button"
+												onClick={() => removeParagraph(index)}
+												className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-white transition hover:bg-white hover:text-black"
+												aria-label={`Remove paragraph ${index + 1}`}
+											>
+												×
+											</button>
+										) : null}
+									</div>
+								</div>
+								{draggingParagraphIndex !== null &&
+								paragraphDropIndex === index + 1 &&
+								index === draft.paragraphs.length - 1 ? (
+									<div
+										aria-hidden="true"
+										className="pointer-events-none absolute inset-x-2 -bottom-2 z-10 h-0.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+									/>
 								) : null}
 							</div>
-						</div>
+						</Fragment>
 					))}
 					<button
 						type="button"

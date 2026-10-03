@@ -111,18 +111,18 @@ export function SelectedPostDialog({
 						</span>
 					))}
 				</div>
-			{selectedPost.tags.length > 0 ? (
-				<div className="mt-2 flex flex-wrap gap-2">
-					{selectedPost.tags.map((tag) => (
-						<span
-							key={tag}
-							className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-medium text-white"
-						>
-							#{tag}
-						</span>
-					))}
-				</div>
-			) : null}
+				{selectedPost.tags.length > 0 ? (
+					<div className="mt-2 flex flex-wrap gap-2">
+						{selectedPost.tags.map((tag) => (
+							<span
+								key={tag}
+								className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-medium text-white"
+							>
+								#{tag}
+							</span>
+						))}
+					</div>
+				) : null}
 
 				<div className="mt-8 text-base leading-8 text-white/85">
 					{selectedPost.paragraphTitles !== undefined && selectedPost.thesis ? (
